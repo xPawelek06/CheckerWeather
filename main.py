@@ -88,9 +88,9 @@ async def tomorrow_weather(interaction: discord.Interaction):
         🌅 **Wschód słońca:** {sunrise}
         🌇 **Zachód słońca:** {sunset}
 
-        🌡️ **Temperatura minimalna:** {min_temp}°C
-        🔥 **Temperatura maksymalna:** {max_temp}°C
-        📊 **Temperatura średnia:** {avg_temp}°C
+        🌡️ **Minimalna temperatura:** {min_temp}°C
+        🔥 **Maksymalna temperatura:** {max_temp}°C
+        📊 **Średnia temperatura:** {avg_temp}°C
 
         🌧️ **Szansa na deszcz:** {rain_chance}%
         """
