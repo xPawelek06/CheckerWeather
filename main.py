@@ -5,13 +5,15 @@ from discord.ext import commands
 from dotenv import load_dotenv
 import requests
 from flask import Flask
+import threading
+
 
 app = Flask('')
 @app.route('/')
 def home():
     return "Bot works!"
 
-def run_web_serwer():
+def run_web_server():
     port = int(os.getenv('PORT', 8080))
     app.run(host='0.0.0.0', port=port)
 
@@ -101,4 +103,5 @@ async def tomorrow_weather(interaction: discord.Interaction):
         )
     )
 
+threading.Thread(target=run_web_server).start()
 bot.run(discord_key)
