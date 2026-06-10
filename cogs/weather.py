@@ -5,6 +5,16 @@ import os
 import requests
 import unicodedata
 
+POLISH_CITIES_FIX = {
+    "Lapy": "Łapy",
+    "Bialystok": "Białystok",
+    "Poznan": "Poznań",
+    "Gdansk": "Gdańsk",
+    "Wroclaw": "Wrocław",
+    "Lodz": "Łódź",
+    "Krakow": "Kraków"
+}
+
 def remove_accents(text: str) -> str:
     normalized = unicodedata.normalize('NFD', text)
     cleaned = "".join(c for c in normalized if unicodedata.category(c) != 'Mn')
