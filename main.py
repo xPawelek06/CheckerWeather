@@ -4,6 +4,8 @@ from discord import app_commands
 from discord.ext import commands
 from dotenv import load_dotenv
 
+from cogs.weather import POLISH_CITIES_FIX
+
 load_dotenv()
 discord_key = os.getenv("DISCORD_KEY")
 weather_key = os.getenv("WEATHER_KEY")
@@ -24,9 +26,16 @@ class CheckerWeather(commands.Bot):
         print(f"Synchronized {len(synced_slash_commands)} slash commands!")
 
     async def on_guild_join(self, guild: discord.Guild):
+        current_location = "Łapy"
+
+        weather_cog = self.get_cog("WeatherCog")
+        if weather_cog and hasattr(weather_cog, 'location'):
+            location = weather_cog.location
+            current_location = POLISH_CITIES_FIX.get(location, location)
+
 
         command_list = f"""
-`/tomorrows_weather` - Displays tomorrow's weather forecast for the currently saved city.
+`/tomorrow_weather` - Displays tomorrow's weather forecast for the currently saved city.
 `/change_location [city_name]` - Changes the target city for the weather forecasts.
 """
 
@@ -42,7 +51,7 @@ class CheckerWeather(commands.Bot):
         )
         embed.add_field(
             name="📍 Current Default Location",
-            value=f"The bot is currently set to **{self.location}**. Use `/change_location` to update it!",
+            value=f"The bot is currently set to **{current_location}**. Use `/change_location` to update it!",
             inline=False,
         )
         if self.user.avatar:
