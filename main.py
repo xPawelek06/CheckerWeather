@@ -1,11 +1,12 @@
 import os
 import discord
 from discord import app_commands
-from discord.ext import commands
+from discord.ext import commands, tasks
 from dotenv import load_dotenv
 import requests
 from flask import Flask
 import threading
+import aiohttp
 
 
 app = Flask('')
@@ -35,6 +36,19 @@ class CheckerWeather(commands.Bot):
         await self.tree.sync()
         print(f"Logged in as {self.user}")
         print(f"Synchronized {len(self.commands)} commands!")
+
+        @tasks.loop(minutes=10)
+        async def keep_alive_ping(self):
+            url_render = os.getenv("RENDER_URL")
+            if not url_render:
+                return
+            async with aiohttp.ClientSession() as session:
+                try:
+                    async with session.get(url_render) as resp:
+                        print(resp.status, flush=True)
+                except Exception as e:
+                    print(f"Error while connecting to {url_render} - {e}", flush=True)
+
 
     async def on_guild_join(self, guild: discord.Guild):
         embed = discord.Embed(
