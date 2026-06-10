@@ -19,9 +19,9 @@ class CheckerWeather(commands.Bot):
                 print(f"Loaded cog {filename}")
 
     async def on_ready(self):
-        await self.tree.sync()
+        synced_slash_commands = await self.tree.sync()
         print(f"Logged in as {self.user}")
-        print(f"Synchronized {len(self.commands)} commands!")
+        print(f"Synchronized {len(synced_slash_commands)} slash commands!")
 
     async def on_guild_join(self, guild: discord.Guild):
         embed = discord.Embed(
