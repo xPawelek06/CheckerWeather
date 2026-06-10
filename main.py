@@ -1,54 +1,27 @@
 import os
 import discord
 from discord import app_commands
-from discord.ext import commands, tasks
+from discord.ext import commands
 from dotenv import load_dotenv
-import requests
-from flask import Flask
-import threading
-import aiohttp
-
-
-app = Flask('')
-@app.route('/')
-def home():
-    return "Bot works!"
-
-def run_web_server():
-    port = int(os.getenv('PORT', 8080))
-    app.run(host='0.0.0.0', port=port)
 
 load_dotenv()
 discord_key = os.getenv("DISCORD_KEY")
 weather_key = os.getenv("WEATHER_KEY")
 
-def check_tomorrows_weather():
-    url = f"http://api.weatherapi.com/v1/forecast.json?key={weather_key}&q=Lapy&days=2&aqi=no&alerts=no"
-    response = requests.get(url)
-    weather_data = response.json()
-    return weather_data
-
 class CheckerWeather(commands.Bot):
     def __init__(self, **kwargs):
         super().__init__(command_prefix="!", tree_cls=app_commands.CommandTree, **kwargs)
+
+    async def setup_hook(self):
+        for filename in os.listdir("./cogs"):
+            if filename.endswith(".py"):
+                await self.load_extension(f"cogs.{filename[:-3]}")
+                print(f"Loaded cog {filename}")
 
     async def on_ready(self):
         await self.tree.sync()
         print(f"Logged in as {self.user}")
         print(f"Synchronized {len(self.commands)} commands!")
-
-        @tasks.loop(minutes=10)
-        async def keep_alive_ping(self):
-            url_render = os.getenv("RENDER_URL")
-            if not url_render:
-                return
-            async with aiohttp.ClientSession() as session:
-                try:
-                    async with session.get(url_render) as resp:
-                        print(resp.status, flush=True)
-                except Exception as e:
-                    print(f"Error while connecting to {url_render} - {e}", flush=True)
-
 
     async def on_guild_join(self, guild: discord.Guild):
         embed = discord.Embed(
@@ -59,11 +32,6 @@ class CheckerWeather(commands.Bot):
         embed.add_field(
             name="Command List:",
             value="Pogoda_jutro",
-            inline=False,
-        )
-        embed.add_field(
-            name="**Weather**",
-            value="Current weather at",
             inline=False,
         )
 
@@ -85,37 +53,4 @@ intents.guilds = True
 intents.members = True
 bot = CheckerWeather(intents=intents)
 
-@bot.tree.command(name="tomorrow_weather", description="Shows forecast weather for tomorrow")
-async def tomorrow_weather(interaction: discord.Interaction):
-    weather_data = check_tomorrows_weather()
-    tomorrow = weather_data["forecast"]["forecastday"][1]
-    time = tomorrow["date"]
-    place = weather_data["location"]["name"]
-    max_temp = tomorrow["day"]["maxtemp_c"]
-    min_temp = tomorrow["day"]["mintemp_c"]
-    avg_temp = tomorrow["day"]["avgtemp_c"]
-    rain_chance = tomorrow["day"]["daily_chance_of_rain"]
-    sunrise = tomorrow["astro"]["sunrise"]
-    sunset = tomorrow["astro"]["sunset"]
-
-    weather_description = f"""
-        🌅 **Wschód słońca:** {sunrise}
-        🌇 **Zachód słońca:** {sunset}
-
-        🌡️ **Minimalna temperatura:** {min_temp}°C
-        🔥 **Maksymalna temperatura:** {max_temp}°C
-        📊 **Średnia temperatura:** {avg_temp}°C
-
-        🌧️ **Szansa na deszcz:** {rain_chance}%
-        """
-
-    await interaction.response.send_message(
-        embed=discord.Embed(
-            title=f"Forecast weather {place} - {time}",
-            description=weather_description,
-            color=discord.Color.blue(),
-        )
-    )
-
-threading.Thread(target=run_web_server).start()
 bot.run(discord_key)
