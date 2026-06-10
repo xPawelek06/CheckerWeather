@@ -24,16 +24,31 @@ class CheckerWeather(commands.Bot):
         print(f"Synchronized {len(synced_slash_commands)} slash commands!")
 
     async def on_guild_join(self, guild: discord.Guild):
+
+        command_list = f"""
+`/tomorrows_weather` - Displays tomorrow's weather forecast for the currently saved city.
+`/change_location [city_name]` - Changes the target city for the weather forecasts.
+"""
+
         embed = discord.Embed(
-            title="Welcome to CheckerWeather!",
-            description="Thanks for using CheckerWeather on your discord server!",
+            title="🌤️ Welcome to CheckerWeather!",
+            description="Thanks for adding CheckerWeather to your Discord server! I'm here to keep you updated on tomorrow's weather forecast.",
             color=discord.Color.blue(),
         )
         embed.add_field(
-            name="Command List:",
-            value="Pogoda_jutro",
+            name="📜 Command List:",
+            value=command_list,
             inline=False,
         )
+        embed.add_field(
+            name="📍 Current Default Location",
+            value=f"The bot is currently set to **{self.location}**. Use `/change_location` to update it!",
+            inline=False,
+        )
+        if self.user.avatar:
+            embed.set_footer(text="CheckerWeather • Created with passion", icon_url=self.user.avatar.url)
+        else:
+            embed.set_footer(text="CheckerWeather • Created with passion")
 
         for channel in sorted(guild.text_channels, key=lambda c: c.position):
             bot_permissions = channel.permissions_for(guild.me)
