@@ -178,7 +178,60 @@ class WeatherCog(commands.Cog):
                 "❌ An unexpected error occurred whilst attempting to retrieve the weather forecast.",
                 ephemeral=True
             )
+            print(e)
 
+    @app_commands.command(name="current_weather", description="Shows current weather")
+    async def current_weather(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=False)
+
+        try:
+            weather_data = self.check_tomorrows_weather()
+            current_time = weather_data["location"]["localtime"]
+            current_place = weather_data["location"]["name"]
+            place = CITIES_FIX.get(current_place, current_place)
+            today = weather_data["current"]
+            temp_c = today["temp_c"]
+            cloud = today["cloud"]
+            wind_speed = today["wind_kph"]
+            wind_direction = today["wind_dir"]
+            weather_condition = today.get("condition", {}).get("text", "N/A")
+
+            current_hour = int(current_time.split(" ")[1].split(":")[0])
+            rain_chance = weather_data["forecast"]["forecastday"][0]["hour"][current_hour]["chance_of_rain"]
+
+            weather_description = (
+            f"### 🌍 Location: **{place}**\n"
+            f"🕒 *Local report time: {current_time}*\n\n"
+            f"🌡️ **Temperature:** `{temp_c}°C`\n"
+            f"☁️ **Cloud Cover:** `{cloud}%` ({weather_condition})\n"
+            f"💧 **Chance of Rain:** `{rain_chance}%`\n"
+            f"💨 **Wind:** `{wind_speed} kph` direction `[{wind_direction}]`"
+            )
+
+            embed = discord.Embed(
+                title=f"🌤️ Current Weather Report",
+                description=weather_description,
+                color=discord.Color.blue(),
+            )
+            if "condition" in today and "icon" in today["condition"]:
+                icon_url = f"https:{today['condition']['icon']}"
+                embed.set_thumbnail(url=icon_url)
+
+            embed.set_footer(text="CheckerWeather • Live Data")
+
+            await interaction.followup.send(embed=embed)
+
+        except WeatherAPIError as e:
+            await interaction.followup.send(
+                f"⚠️ **The weather problem:** {str(e)}",
+                ephemeral=True
+            )
+        except Exception as e:
+            await interaction.followup.send(
+                "❌ An unexpected error occurred whilst attempting to retrieve the weather forecast.",
+                ephemeral=True
+            )
+            print(e)
 
     @app_commands.command(name="change_location", description="Change selected location")
     async def change_location(self, interaction: discord.Interaction, location: str):
