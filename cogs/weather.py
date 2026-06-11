@@ -23,6 +23,11 @@ def remove_accents(text: str) -> str:
     cleaned = cleaned.replace('Ł', 'L').replace('ł', 'l')
     return cleaned
 
+class WeatherAPIError(Exception):
+    def __init__(self, message: str, error_code: int=None):
+        super().__init__(message)
+        self.error_code = error_code
+
 class WeatherCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
@@ -39,8 +44,34 @@ class WeatherCog(commands.Cog):
         weather_key = os.getenv("WEATHER_KEY")
         url = f"https://api.weatherapi.com/v1/forecast.json?key={weather_key}&q={self.location}&days=2&aqi=no&alerts=no"
         response = requests.get(url)
-        weather_data = response.json()
-        return weather_data
+
+        if response.status_code == 200:
+            weather_data = response.json()
+            return weather_data
+
+        try:
+            error_data = response.json().get("error", {})
+            api_code = error_data.get("code")
+            api_msg = error_data.get("message")
+        except Exception:
+            api_code = None
+            api_msg = "Unknown API error"
+
+        if response.status_code == 400:
+            if api_code == 1006:
+                raise WeatherAPIError(f"Did not found localization named: **{self.location}**.", api_code)
+            raise WeatherAPIError(f"Invalid API question (Code: {api_code}): {api_msg}.", api_code)
+
+        elif response.status_code == 401:
+            raise WeatherAPIError("API Key is invalid or did not mentioned. Check bot configuration.", api_code)
+
+        elif response.status_code == 403:
+            if api_code == 2007:
+                raise WeatherAPIError("Free question's limit on this month has been used.", api_code)
+            raise WeatherAPIError("API access has been blocked", api_code)
+
+        else:
+            raise WeatherAPIError(f"Weather server error (HTTP {response.status_code}): {api_msg}.", api_code)
 
     @tasks.loop(time=time(hour=18, minute=0, second=0, tzinfo=ZoneInfo("Europe/Warsaw")))
     async def daily_weather_notification(self):
@@ -105,19 +136,20 @@ class WeatherCog(commands.Cog):
 
     @app_commands.command(name="tomorrow_weather", description="Shows forecast weather for tomorrow")
     async def tomorrow_weather(self, interaction: discord.Interaction):
-        weather_data = self.check_tomorrows_weather()
-        tomorrow = weather_data["forecast"]["forecastday"][1]
-        forecast_date = tomorrow["date"]
-        raw_place = weather_data["location"]["name"]
-        place = CITIES_FIX.get(raw_place, raw_place)
-        max_temp = tomorrow["day"]["maxtemp_c"]
-        min_temp = tomorrow["day"]["mintemp_c"]
-        avg_temp = tomorrow["day"]["avgtemp_c"]
-        rain_chance = tomorrow["day"]["daily_chance_of_rain"]
-        sunrise = tomorrow["astro"]["sunrise"]
-        sunset = tomorrow["astro"]["sunset"]
+        try:
+            weather_data = self.check_tomorrows_weather()
+            tomorrow = weather_data["forecast"]["forecastday"][1]
+            forecast_date = tomorrow["date"]
+            raw_place = weather_data["location"]["name"]
+            place = CITIES_FIX.get(raw_place, raw_place)
+            max_temp = tomorrow["day"]["maxtemp_c"]
+            min_temp = tomorrow["day"]["mintemp_c"]
+            avg_temp = tomorrow["day"]["avgtemp_c"]
+            rain_chance = tomorrow["day"]["daily_chance_of_rain"]
+            sunrise = tomorrow["astro"]["sunrise"]
+            sunset = tomorrow["astro"]["sunset"]
 
-        weather_description = f"""
+            weather_description = f"""
 🌅 **Sunrise:** {sunrise}
 🌇 **Sunset:** {sunset}
 
@@ -128,19 +160,57 @@ class WeatherCog(commands.Cog):
 🌧️ **Rain chance:** {rain_chance}%
 """
 
-        await interaction.response.send_message(
-            embed=discord.Embed(
-                title=f"Forecast weather: {place} - {forecast_date}",
-                description=weather_description,
-                color=discord.Color.blue(),
+            await interaction.response.send_message(
+                embed=discord.Embed(
+                    title=f"Forecast weather: {place} - {forecast_date}",
+                    description=weather_description,
+                    color=discord.Color.blue(),
+                )
             )
-        )
+
+        except WeatherAPIError as e:
+            await interaction.response.send_message(
+                f"⚠️ **The weather problem:** {str(e)}",
+                ephemeral=True
+            )
+        except Exception as e:
+            await interaction.response.send_message(
+                "❌ An unexpected error occurred whilst attempting to retrieve the weather forecast.",
+                ephemeral=True
+            )
+
 
     @app_commands.command(name="change_location", description="Change selected location")
     async def change_location(self, interaction: discord.Interaction, location: str):
-        cleaned_location = remove_accents(location)
-        self.location = cleaned_location
+        old_location = self.location
 
+        try:
+            cleaned_location = remove_accents(location)
+            self.location = cleaned_location
+
+            await interaction.response.defer(ephemeral=True)
+
+            self.check_tomorrows_weather()
+            display_name = CITIES_FIX.get(cleaned_location, location)
+            await interaction.followup.send(
+                f"🎯 Your location has been successfully changed to **{display_name}**.",
+                ephemeral=True
+            )
+
+        except WeatherAPIError as e:
+            self.location = old_location
+
+            await interaction.followup.send(
+                f"⚠️ **Could not change location:** {str(e)}",
+                ephemeral=True
+            )
+
+        except Exception as e:
+            self.location = old_location
+            await interaction.followup.send(
+                "❌ An unexpected error occurred while verifying the new location. Changes reverted.",
+                ephemeral=True
+            )
         await interaction.response.send_message(f"Your location has been changed to {location}.", ephemeral=True)
 
     @app_commands.command(name="set_channel", description="Set the channel where daily weather updates will be sent")
