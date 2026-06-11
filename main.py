@@ -3,7 +3,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 from dotenv import load_dotenv
-from cogs.weather import POLISH_CITIES_FIX
+from cogs.weather import CITIES_FIX
 
 load_dotenv()
 discord_key = os.getenv("DISCORD_KEY")
@@ -30,12 +30,13 @@ class CheckerWeather(commands.Bot):
         weather_cog = self.get_cog("WeatherCog")
         if weather_cog and hasattr(weather_cog, 'location'):
             location = weather_cog.location
-            current_location = POLISH_CITIES_FIX.get(location, location)
+            current_location = CITIES_FIX.get(location, location)
 
 
         command_list = f"""
 `/tomorrow_weather` - Displays tomorrow's weather forecast for the currently saved city.
 `/change_location [city_name]` - Changes the target city for the weather forecasts.
+`/set_channel [channel]` - Sets a custom text channel for automated daily notifications. 
 """
 
         embed = discord.Embed(
@@ -51,6 +52,16 @@ class CheckerWeather(commands.Bot):
         embed.add_field(
             name="📍 Current Default Location",
             value=f"The bot is currently set to **{current_location}**. Use `/change_location` to update it!",
+            inline=False,
+        )
+        embed.add_field(
+            name="⚙️ Automated Daily Notifications Setup",
+            value=(
+                "To choose exactly where the bot should post daily forecasts, use the **`/set_channel`** command.\n\n"
+                "⚠️ *If you don't set a custom channel, the bot will automatically try to find a text channel named "
+                "**`weather`** or **`general`**. If none of those exist, it will use the first available "
+                "channel it has permission to send messages to.*"
+            ),
             inline=False,
         )
         if self.user.avatar:
