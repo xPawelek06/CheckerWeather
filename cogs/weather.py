@@ -5,6 +5,7 @@ import os
 import requests
 import unicodedata
 from datetime import time
+from zoneinfo import ZoneInfo
 
 CITIES_FIX = {
     "Lapy": "Łapy",
@@ -41,10 +42,10 @@ class WeatherCog(commands.Cog):
         weather_data = response.json()
         return weather_data
 
-    @tasks.loop(minutes=1)
+    @tasks.loop(time=time(hour=18, minute=0, second=0, tzinfo=ZoneInfo("Europe/Warsaw")))
     async def daily_weather_notification(self):
         await self.bot.wait_until_ready()
-        print("Starting daily weather notification.")
+        print("Starting daily weather notification at 18:00 Polish Time.")
 
         try:
             weather_data = self.check_tomorrows_weather()
@@ -140,7 +141,7 @@ class WeatherCog(commands.Cog):
         cleaned_location = remove_accents(location)
         self.location = cleaned_location
 
-        await interaction.response.send_message(f"You location has been changed to {location}.", ephemeral=True)
+        await interaction.response.send_message(f"Your location has been changed to {location}.", ephemeral=True)
 
     @app_commands.command(name="set_channel", description="Set the channel where daily weather updates will be sent")
     @app_commands.checks.has_permissions(manage_guild=True)
