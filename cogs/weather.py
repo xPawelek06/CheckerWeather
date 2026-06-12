@@ -119,7 +119,7 @@ class WeatherCog(commands.Cog):
         else:
             raise WeatherAPIError(f"Weather server error (HTTP {response.status_code}): {api_msg}.", api_code)
 
-    @tasks.loop(time=time(hour=11, minute=10, second=0, tzinfo=ZoneInfo("Europe/Warsaw")))
+    @tasks.loop(time=time(hour=10, minute=10, second=0))
     async def daily_weather_notification(self):
 
         try:
@@ -374,20 +374,6 @@ class WeatherCog(commands.Cog):
                 "❌ You need `Manage Server` permissions to use this command.",
                 ephemeral=True
             )
-
-    @app_commands.command(name="test_notification",
-                          description="Wymusza natychmiastowe uruchomienie pętli powiadomień (Tylko test)")
-    @app_commands.checks.has_permissions(manage_guild=True)
-    async def test_notification(self, interaction: discord.Interaction):
-        await interaction.response.defer(ephemeral=True)
-        try:
-            # Ręcznie wywołujemy funkcję ukrytą wewnątrz pętli zadań
-            await self.daily_weather_notification()
-            await interaction.followup.send(
-                "✅ Pętla powiadomień pogodowych została wywołana ręcznie. Sprawdź kanały tekstowe i logi!",
-                ephemeral=True)
-        except Exception as e:
-            await interaction.followup.send(f"❌ Błąd podczas testu pętli: {e}", ephemeral=True)
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(WeatherCog(bot))
