@@ -70,8 +70,12 @@ class CheckerWeather(commands.Bot):
         else:
             embed.set_footer(text="CheckerWeather • Created with passion")
 
+        bot_member = guild.get_member(self.user.id) or await guild.fetch_member(self.user.id)
+        if not bot_member:
+            return
+
         for channel in sorted(guild.text_channels, key=lambda c: c.position):
-            bot_permissions = channel.permissions_for(guild.me)
+            bot_permissions = channel.permissions_for(bot_member)
             if bot_permissions.send_messages and bot_permissions.embed_links:
                 try:
                     await channel.send(embed=embed)
@@ -83,9 +87,7 @@ class CheckerWeather(commands.Bot):
                     continue
 
 intents = discord.Intents.default()
-intents.message_content = True
 intents.guilds = True
-intents.members = True
 bot = CheckerWeather(intents=intents)
 
 bot.run(discord_key)
