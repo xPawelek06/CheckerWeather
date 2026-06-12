@@ -245,22 +245,31 @@ class WeatherCog(commands.Cog):
             rain_chance = weather_data["forecast"]["forecastday"][0]["hour"][current_hour]["chance_of_rain"]
 
             ai_poem = "*AI was unable to compose a poem for this report.*"
+            ai_clothes = "*AI was unable to generate clothing suggestions.*"
             try:
                 ai_prompt = (
-                    f"Write a very short, beautiful four-line poem about the current weather in {place}. "
-                    f"Temperature is {temp_c}°C, sky condition is {weather_condition}, cloud cover is {cloud}%, "
-                    f"and wind speed is {wind_speed} kph. Keep the response limited ONLY to the poem itself."
+                    f"Based on the weather in {place}: Temperature {temp_c}°C, {weather_condition}, "
+                    f"clouds {cloud}%, wind {wind_speed} kph. "
+                    f"Provide two short sections. "
+                    f"First, a beautiful four-line weather poem. "
+                    f"Second, brief clothing suggestions for today. "
+                    f"CRITICAL: Separate the poem and clothing sections EXACTLY with the text '[SEPARATOR]' on a new line. "
+                    f"Do not write any other text or conversational filler."
                 )
                 ai_response = await self.ai_client.chat(
                     model=self.ai_model,
                     messages=[{'role': 'user', 'content': ai_prompt}],
                 )
-                ai_poem = ai_response["message"]["content"]
+                full_response = ai_response["message"]["content"]
 
-                if len(ai_poem) > 1000:
-                    ai_poem = ai_poem[:990] + "..."
+                if "[SEPARATOR]" in full_response:
+                    parts = full_response.split("[SEPARATOR]")
+                    ai_poem = parts[0].strip()
+                    ai_clothes = parts[1].strip()
+                else:
+                    ai_poem = full_response.strip()
             except Exception as ai_err:
-                print(f"[Ollama Error] Nie udało się wygenerować wiersza: {ai_err}")
+                print(f"[Ollama Error] Nie udało się wygenerować sekcji AI: {ai_err}")
 
             weather_description = (
             f"### 🌍 Location: **{place}**\n"
@@ -279,6 +288,11 @@ class WeatherCog(commands.Cog):
             embed.add_field(
                 name="📜 Weather Poem",
                 value=ai_poem,
+                inline=False,
+            )
+            embed.add_field(
+                name="✨ Clothes suggestion",
+                value=ai_clothes,
                 inline=False,
             )
             if "condition" in today and "icon" in today["condition"]:
@@ -360,6 +374,20 @@ class WeatherCog(commands.Cog):
                 "❌ You need `Manage Server` permissions to use this command.",
                 ephemeral=True
             )
+
+    @app_commands.command(name="test_notification",
+                          description="Wymusza natychmiastowe uruchomienie pętli powiadomień (Tylko test)")
+    @app_commands.checks.has_permissions(manage_guild=True)
+    async def test_notification(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+        try:
+            # Ręcznie wywołujemy funkcję ukrytą wewnątrz pętli zadań
+            await self.daily_weather_notification()
+            await interaction.followup.send(
+                "✅ Pętla powiadomień pogodowych została wywołana ręcznie. Sprawdź kanały tekstowe i logi!",
+                ephemeral=True)
+        except Exception as e:
+            await interaction.followup.send(f"❌ Błąd podczas testu pętli: {e}", ephemeral=True)
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(WeatherCog(bot))
