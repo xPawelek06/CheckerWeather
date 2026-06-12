@@ -109,7 +109,7 @@ class WeatherCog(commands.Cog):
         else:
             raise WeatherAPIError(f"Weather server error (HTTP {response.status_code}): {api_msg}.", api_code)
 
-    @tasks.loop(time=time(hour=10, minute=20, second=0, tzinfo=ZoneInfo("Europe/Warsaw")))
+    @tasks.loop(time=time(hour=10, minute=43, second=0, tzinfo=ZoneInfo("Europe/Warsaw")))
     async def daily_weather_notification(self):
         await self.bot.wait_until_ready()
         print("Starting daily weather notification at 18:00 Polish Time.")
