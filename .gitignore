@@ -6,4 +6,3 @@ __pycache__/
 *.db
 *.log
 ollama.txt
-cogs/ai.py
