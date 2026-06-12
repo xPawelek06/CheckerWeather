@@ -6,6 +6,8 @@ import requests
 import unicodedata
 from datetime import time
 from zoneinfo import ZoneInfo
+import json
+import asyncpg
 
 CITIES_FIX = {
     "Lapy": "Łapy",
@@ -32,13 +34,48 @@ class WeatherCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.location = "Lapy"
-
         self.forecast_channels = {}
+        self.db_pool = None
 
-        self.daily_weather_notification.start()
+    async def cog_load(self):
+        db_url = os.getenv("DATABASE_URL")
+        if not db_url:
+            print("[WeatherCog] BŁĄD: Brak zmiennej DATABASE_URL w pliku .env!")
+            return
+
+        try:
+            # Tworzymy stabilną pulę połączeń z bazy danych
+            self.db_pool = await asyncpg.create_pool(db_url)
+
+            # Tworzymy tabelę w bazie, o ile nie została stworzona wcześniej
+            async with self.db_pool.acquire() as conn:
+                await conn.execute('''
+                    CREATE TABLE IF NOT EXISTS weather_channels (
+                        guild_id BIGINT PRIMARY KEY,
+                        channel_id BIGINT NOT NULL
+                    )
+                ''')
+
+                # Pobieramy zapisane kanały i wrzucamy je do pamięci podręcznej bota
+                rows = await conn.fetch('SELECT guild_id, channel_id FROM weather_channels')
+                for row in rows:
+                    self.forecast_channels[row['guild_id']] = row['channel_id']
+
+            print("[WeatherCog] Pomyślnie połączono z PostgreSQL i wczytano konfigurację kanałów.")
+        except Exception as e:
+            print(f"[WeatherCog] Krytyczny błąd połączenia z bazą danych: {e}")
+
+        # Odpalenie pętli powiadomień
+        if not self.daily_weather_notification.is_running():
+            self.daily_weather_notification.start()
+            print("[WeatherCog] Pętla powiadomień pogodowych została uruchomiona.")
 
     def cog_unload(self):
         self.daily_weather_notification.stop()
+        # Bezpieczne zamykanie połączeń z bazą przy zamykaniu coga
+        if self.db_pool:
+            self.bot.loop.create_task(self.db_pool.close())
+            print("[WeatherCog] Połączenie z bazą PostgreSQL zostało zamknięte.")
 
     def check_tomorrows_weather(self):
         weather_key = os.getenv("WEATHER_KEY")
@@ -73,7 +110,7 @@ class WeatherCog(commands.Cog):
         else:
             raise WeatherAPIError(f"Weather server error (HTTP {response.status_code}): {api_msg}.", api_code)
 
-    @tasks.loop(time=time(hour=18, minute=0, second=0, tzinfo=ZoneInfo("Europe/Warsaw")))
+    @tasks.loop(time=time(hour=10, minute=20, second=0, tzinfo=ZoneInfo("Europe/Warsaw")))
     async def daily_weather_notification(self):
         await self.bot.wait_until_ready()
         print("Starting daily weather notification at 18:00 Polish Time.")
@@ -196,7 +233,8 @@ class WeatherCog(commands.Cog):
             wind_direction = today["wind_dir"]
             weather_condition = today.get("condition", {}).get("text", "N/A")
 
-            current_hour = int(current_time.split(" ")[1].split(":")[0])
+            time_part = current_time.split()[-1]
+            current_hour = int(time_part.split(":")[0])
             rain_chance = weather_data["forecast"]["forecastday"][0]["hour"][current_hour]["chance_of_rain"]
 
             weather_description = (
@@ -222,15 +260,9 @@ class WeatherCog(commands.Cog):
             await interaction.followup.send(embed=embed)
 
         except WeatherAPIError as e:
-            await interaction.followup.send(
-                f"⚠️ **The weather problem:** {str(e)}",
-                ephemeral=True
-            )
+            await interaction.followup.send(f"⚠️ **The weather problem:** {str(e)}")
         except Exception as e:
-            await interaction.followup.send(
-                "❌ An unexpected error occurred whilst attempting to retrieve the weather forecast.",
-                ephemeral=True
-            )
+            await interaction.followup.send("❌ An unexpected error occurred whilst attempting to retrieve the weather forecast.")
             print(e)
 
     @app_commands.command(name="change_location", description="Change selected location")
@@ -264,7 +296,6 @@ class WeatherCog(commands.Cog):
                 "❌ An unexpected error occurred while verifying the new location. Changes reverted.",
                 ephemeral=True
             )
-        await interaction.response.send_message(f"Your location has been changed to {location}.", ephemeral=True)
 
     @app_commands.command(name="set_channel", description="Set the channel where daily weather updates will be sent")
     @app_commands.checks.has_permissions(manage_guild=True)
@@ -274,6 +305,18 @@ class WeatherCog(commands.Cog):
             return
 
         self.forecast_channels[interaction.guild_id] = channel.id
+        if self.db_pool:
+            try:
+                async with self.db_pool.acquire() as conn:
+                    await conn.execute('''
+                                INSERT INTO weather_channels (guild_id, channel_id)
+                                VALUES ($1, $2)
+                                ON CONFLICT (guild_id) 
+                                DO UPDATE SET channel_id = EXCLUDED.channel_id
+                            ''', interaction.guild_id, channel.id)
+                print(f"[Database] Zaktualizowano kanał powiadomień dla serwera o ID: {interaction.guild_id}")
+            except Exception as e:
+                print(f"[Database] Błąd podczas zapisu kanału powiadomień: {e}")
 
         await interaction.response.send_message(
             f"🎯 Daily weather forecasts will now be sent to {channel.mention}!",

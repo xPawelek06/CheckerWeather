@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 from cogs.weather import CITIES_FIX
 
 load_dotenv()
-discord_key = os.getenv("DISCORD_KEY")
+discord_key = os.getenv("DISCORD_KEY_TEST")
 weather_key = os.getenv("WEATHER_KEY")
 
 class CheckerWeather(commands.Bot):
