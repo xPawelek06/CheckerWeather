@@ -119,7 +119,7 @@ class WeatherCog(commands.Cog):
         else:
             raise WeatherAPIError(f"Weather server error (HTTP {response.status_code}): {api_msg}.", api_code)
 
-    @tasks.loop(time=time(hour=10, minute=10, second=0))
+    @tasks.loop(time=time(hour=16, minute=00, second=0))
     async def daily_weather_notification(self):
 
         try:
