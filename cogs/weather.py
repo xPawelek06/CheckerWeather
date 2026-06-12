@@ -7,6 +7,7 @@ import unicodedata
 from datetime import time
 from zoneinfo import ZoneInfo
 import asyncpg
+from ollama import AsyncClient
 
 CITIES_FIX = {
     "Lapy": "Łapy",
@@ -35,6 +36,11 @@ class WeatherCog(commands.Cog):
         self.location = "Lapy"
         self.forecast_channels = {}
         self.db_pool = None
+
+        self.ai_client = AsyncClient(
+            host=os.getenv("OLLAMA_HOST", "https://api.ollama.com"),
+        )
+        self.ai_model = "gemma4:31b"
 
     async def cog_load(self):
         db_url = os.getenv("DATABASE_URL")
@@ -238,6 +244,24 @@ class WeatherCog(commands.Cog):
             current_hour = int(time_part.split(":")[0])
             rain_chance = weather_data["forecast"]["forecastday"][0]["hour"][current_hour]["chance_of_rain"]
 
+            ai_poem = "*AI was unable to compose a poem for this report.*"
+            try:
+                ai_prompt = (
+                    f"Write a very short, beautiful four-line poem about the current weather in {place}. "
+                    f"Temperature is {temp_c}°C, sky condition is {weather_condition}, cloud cover is {cloud}%, "
+                    f"and wind speed is {wind_speed} kph. Keep the response limited ONLY to the poem itself."
+                )
+                ai_response = await self.ai_client.chat(
+                    model=self.ai_model,
+                    messages=[{'role': 'user', 'content': ai_prompt}],
+                )
+                ai_poem = ai_response["message"]["content"]
+
+                if len(ai_poem) > 1000:
+                    ai_poem = ai_poem[:990] + "..."
+            except Exception as ai_err:
+                print(f"[Ollama Error] Nie udało się wygenerować wiersza: {ai_err}")
+
             weather_description = (
             f"### 🌍 Location: **{place}**\n"
             f"🕒 *Local report time: {current_time}*\n\n"
@@ -251,6 +275,11 @@ class WeatherCog(commands.Cog):
                 title=f"🌤️ Current Weather Report",
                 description=weather_description,
                 color=discord.Color.blue(),
+            )
+            embed.add_field(
+                name="📜 Weather Poem",
+                value=ai_poem,
+                inline=False,
             )
             if "condition" in today and "icon" in today["condition"]:
                 icon_url = f"https:{today['condition']['icon']}"
