@@ -34,6 +34,7 @@ class CheckerWeather(commands.Bot):
 
 
         command_list = f"""
+`/current_weather` - Displays live weather reports enhanced with a custom AI poem and outfit recommendations.
 `/tomorrow_weather` - Displays tomorrow's weather forecast for the currently saved city.
 `/change_location [city_name]` - Changes the target city for the weather forecasts.
 `/set_channel [channel]` - Sets a custom text channel for automated daily notifications. 
