@@ -64,10 +64,14 @@ class WeatherCog(commands.Cog):
         except Exception as e:
             print(f"[WeatherCog] Krytyczny błąd połączenia z bazą danych: {e}")
 
-        # Odpalenie pętli powiadomień
+        # Czekamy, aż bot połączy się w pełni z Discordem, zanim uruchomimy pętlę czasu
         if not self.daily_weather_notification.is_running():
-            self.daily_weather_notification.start()
-            print("[WeatherCog] Pętla powiadomień pogodowych została uruchomiona.")
+            self.bot.loop.create_task(self._start_loop_when_ready())
+
+    async def _start_loop_when_ready(self):
+        await self.bot.wait_until_ready()
+        self.daily_weather_notification.start()
+        print("[WeatherCog] Bot jest gotowy. Pętla powiadomień pogodowych została uruchomiona.")
 
     def cog_unload(self):
         self.daily_weather_notification.stop()
@@ -109,10 +113,8 @@ class WeatherCog(commands.Cog):
         else:
             raise WeatherAPIError(f"Weather server error (HTTP {response.status_code}): {api_msg}.", api_code)
 
-    @tasks.loop(time=time(hour=10, minute=43, second=0, tzinfo=ZoneInfo("Europe/Warsaw")))
+    @tasks.loop(time=time(hour=11, minute=10, second=0, tzinfo=ZoneInfo("Europe/Warsaw")))
     async def daily_weather_notification(self):
-        await self.bot.wait_until_ready()
-        print("Starting daily weather notification at 18:00 Polish Time.")
 
         try:
             weather_data = self.check_tomorrows_weather()
