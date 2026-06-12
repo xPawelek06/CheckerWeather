@@ -6,8 +6,8 @@ import requests
 import unicodedata
 from datetime import time
 from zoneinfo import ZoneInfo
-import json
 import asyncpg
+from cogs.ai import messages
 
 CITIES_FIX = {
     "Lapy": "Łapy",

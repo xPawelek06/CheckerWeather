@@ -13,7 +13,7 @@ client = Client(
 messages = [
   {
     'role': 'user',
-    'content': 'Why is the sky blue?',
+    'content': 'Ułóż mi wierszyk o dzisiejszej pogodzie',
   },
 ]
 
