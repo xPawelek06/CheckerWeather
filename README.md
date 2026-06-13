@@ -24,3 +24,6 @@ The bot uses modern Discord **Slash Commands**. Just type:
 * **AI Engine:** Ollama Cloud Engine (`gemma4:31b`)
 * **API Service:** WeatherAPI.com
 * **Deployment Platform:** Optimized for Render (Web Services) combined with UptimeRobot for keeping the instance alive.
+
+## ⚡ Invite the Bot
+👉 **[Click here to invite CheckerWeather to your Discord server!](https://discord.com/oauth2/authorize?client_id=1513504909784387755)**
